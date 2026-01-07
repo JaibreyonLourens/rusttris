@@ -1,16 +1,36 @@
 use eframe::egui;
-use crate::enums::states::GameState;
 
-pub fn draw(ui: &mut egui::Ui) -> Option<GameState> {
-    let mut next_state = None;
+pub enum MenuAction {
+    StartGame,
+    NewPlayer,
+    SelectPlayer,
+}
+
+pub fn draw(ui: &mut egui::Ui, player_name: &str) -> Option<MenuAction> {
+    let mut action = None;
     
     ui.vertical_centered(|ui| {
         ui.add_space(100.0);
         ui.heading("Welcome to Rusttris!");
-        ui.add_space(50.0);
+        ui.add_space(20.0);
+        
+        ui.label(format!("Player: {}", player_name));
+        ui.add_space(30.0);
         
         if ui.button("Start Game").clicked() {
-            next_state = Some(GameState::Playing);
+            action = Some(MenuAction::StartGame);
+        }
+        
+        ui.add_space(10.0);
+        
+        if ui.button("Select Player").clicked() {
+            action = Some(MenuAction::SelectPlayer);
+        }
+        
+        ui.add_space(10.0);
+        
+        if ui.button("New Player").clicked() {
+            action = Some(MenuAction::NewPlayer);
         }
         
         ui.add_space(20.0);
@@ -25,5 +45,5 @@ pub fn draw(ui: &mut egui::Ui) -> Option<GameState> {
         ui.label("P : Pause");
     });
     
-    next_state
+    action
 }

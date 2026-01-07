@@ -42,12 +42,22 @@ impl HoldQueue {
             ui.heading("Hold");
             ui.add_space(10.0);
             
-            if let Some(piece) = &self.held_piece {
-                // Draw the held piece preview
-                piece.draw_preview(ui, 20.0);
-            } else {
-                ui.label("Empty");
-            }
+            // Allocate fixed size area for consistency
+            let fixed_width = 100.0;
+            let fixed_height = 100.0;
+            
+            ui.allocate_ui_with_layout(
+                egui::vec2(fixed_width, fixed_height),
+                egui::Layout::centered_and_justified(egui::Direction::TopDown),
+                |ui| {
+                    if let Some(piece) = &self.held_piece {
+                        // Draw the held piece preview centered in the fixed area
+                        piece.draw_preview(ui, 20.0);
+                    } else {
+                        ui.label("Empty");
+                    }
+                },
+            );
         });
     }
 }

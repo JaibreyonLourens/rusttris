@@ -6,3 +6,5 @@ pub mod score_manager;
 pub mod hold;
 pub mod screens;
 pub mod screen_manager;
+pub mod player;
+pub mod database;

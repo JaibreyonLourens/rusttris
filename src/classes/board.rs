@@ -36,6 +36,11 @@ impl Board {
     }
 
     pub fn draw(&self, ui: &mut egui::Ui) {
+        self.draw_with_overlay(ui, &[]);
+    }
+
+    // Draw board with optional overlay blocks (for ghost pieces)
+    pub fn draw_with_overlay(&self, ui: &mut egui::Ui, overlay_blocks: &[(i32, i32, Color32)]) {
         let (rect, _response) = ui.allocate_exact_size(
             egui::vec2(
                 BOARD_WIDTH as f32 * self.cell_size,
@@ -72,6 +77,21 @@ impl Board {
                     0.0,
                     egui::Stroke::new(1.0, Color32::from_rgb(40, 40, 50)),
                 );
+            }
+        }
+
+        // Draw overlay blocks (ghost pieces, etc.)
+        for (row, col, color) in overlay_blocks {
+            if *row >= 0 && *col >= 0 && (*row as usize) < BOARD_HEIGHT && (*col as usize) < BOARD_WIDTH {
+                let cell_rect = egui::Rect::from_min_size(
+                    rect.min
+                        + egui::vec2(
+                            *col as f32 * self.cell_size,
+                            *row as f32 * self.cell_size,
+                        ),
+                    egui::vec2(self.cell_size, self.cell_size),
+                );
+                painter.rect_filled(cell_rect.shrink(1.0), 2.0, *color);
             }
         }
 

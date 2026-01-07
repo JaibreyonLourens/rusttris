@@ -361,4 +361,10 @@ impl Piece {
             painter.rect_filled(cell_rect.shrink(1.0), 2.0, self.color);
         }
     }
+
+    // Helper method to get piece color with custom transparency (useful for ghost pieces)
+    pub fn get_color_with_alpha(&self, alpha: u8) -> Color32 {
+        let [r, g, b, _] = self.color.to_array();
+        Color32::from_rgba_unmultiplied(r, g, b, alpha)
+    }
 }
