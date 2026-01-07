@@ -36,13 +36,20 @@ impl RusttrisApp {
         let db_manager = DbManager::new();
         let player_result = db_manager.get_last_active_player();
         
+        println!("Loading last active player...");
         let (player, has_player) = match player_result {
             Ok(Some(p)) => {
+                println!("Loaded player: {} (ID: {:?})", p.name, p.id);
                 game.set_state(crate::enums::states::GameState::Menu);
                 (p, true)
             },
-            _ => {
-                // No players found, show player creation
+            Ok(None) => {
+                println!("No players found in database");
+                game.set_state(crate::enums::states::GameState::PlayerCreation);
+                (Player::new("".to_string()), false)
+            },
+            Err(e) => {
+                println!("Error loading player: {}", e);
                 game.set_state(crate::enums::states::GameState::PlayerCreation);
                 (Player::new("".to_string()), false)
             }
@@ -103,15 +110,30 @@ impl eframe::App for RusttrisApp {
                         ScreenAction::RestartGame => self.game.reset_game(),
                         ScreenAction::CreatePlayer(name) => {
                             // Save to database here
-                            let player_id = self.db_manager.create_player(&name).unwrap();
-                            
-                            // Create player instance with DB id
-                            let mut player = Player::new(name);
-                            player.id = Some(player_id);
-                            self.player = player;
-                            self.has_player = true;
-                            self.game.set_state(crate::enums::states::GameState::Menu);
-                            println!("Player created: {}", self.player.name);
+                            match self.db_manager.create_player(&name) {
+                                Ok(player_id) => {
+                                    // Create player instance with DB id
+                                    let mut player = Player::new(name.clone());
+                                    player.id = Some(player_id);
+                                    self.player = player;
+                                    self.has_player = true;
+                                    self.game.set_state(crate::enums::states::GameState::Menu);
+                                    println!("Player created: {}", self.player.name);
+                                },
+                                Err(e) => {
+                                    let error_msg = if e.to_string().contains("UNIQUE constraint") {
+                                        format!("Player '{}' already exists. Please choose a different name.", name)
+                                    } else {
+                                        format!("Failed to create player: {}", e)
+                                    };
+                                    println!("{}", error_msg);
+                                    // Send error back to screen manager
+                                    self.screen_manager.player_creation_error = Some(error_msg);
+                                }
+                            }
+                        },
+                        ScreenAction::CreatePlayerError(_) => {
+                            // Handled by screen_manager
                         },
                         ScreenAction::ShowPlayerCreation => {
                             self.game.set_state(crate::enums::states::GameState::PlayerCreation);
@@ -120,13 +142,21 @@ impl eframe::App for RusttrisApp {
                             self.game.set_state(crate::enums::states::GameState::PlayerSelection);
                         },
                         ScreenAction::SelectPlayer(player_id) => {
+                            println!("Selecting player with ID: {}", player_id);
                             if let Ok(Some(player)) = self.db_manager.get_player_with_stats(player_id) {
+                                println!("Loaded player: {} (ID: {:?})", player.name, player.id);
                                 self.player = player;
+                                self.has_player = true;
                                 self.game.set_state(crate::enums::states::GameState::Menu);
+                            } else {
+                                println!("Failed to load player with ID: {}", player_id);
                             }
                         },
                         ScreenAction::BackToMenu => {
                             self.game.set_state(crate::enums::states::GameState::Menu);
+                        },
+                        ScreenAction::ShowLeaderboard => {
+                            self.game.set_state(crate::enums::states::GameState::Leaderboard);
                         },
                     }
                 }

@@ -70,7 +70,7 @@ impl DbManager {
     .as_secs() as i64;
         
         self.conn.execute(
-            "INSERT INTO games (player_id, score, level, lines_cleared, singles, doubles, triples, tetrises, max_combo, pieces_placed, duration_seconds, back_to_backs, played_at) 
+            "INSERT INTO games (player_id, score, level, lines_cleared, singles, doubles, triples, quadruples, max_combo, pieces_placed, duration_seconds, back_to_backs, played_at) 
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 player_id,
@@ -142,7 +142,7 @@ impl DbManager {
         let player_id = player.id.unwrap();
         
         let mut stmt = self.conn.prepare(
-            "SELECT score, level, lines_cleared, singles, doubles, triples, tetrises, 
+            "SELECT score, level, lines_cleared, singles, doubles, triples, quadruples, 
                     max_combo, pieces_placed, duration_seconds, played_at, back_to_backs
              FROM games 
              WHERE player_id = ?1 
@@ -187,4 +187,47 @@ impl DbManager {
 
         Ok(players)
     }
+
+    pub fn get_leaderboard(&self, limit: usize, category: LeaderboardCategory) -> Result<Vec<(String, u32)>> {
+        let (column, alias) = match category {
+            LeaderboardCategory::HighScore => ("MAX(g.score)", "value"),
+            LeaderboardCategory::HighestLevel => ("MAX(g.level)", "value"),
+            LeaderboardCategory::MostLines => ("MAX(g.lines_cleared)", "value"),
+            LeaderboardCategory::MaxCombo => ("MAX(g.max_combo)", "value"),
+            LeaderboardCategory::Mostquadruples => ("MAX(g.quadruples)", "value"),
+            LeaderboardCategory::MostBackToBacks => ("MAX(g.back_to_backs)", "value"),
+        };
+
+        let query = format!(
+            "SELECT p.name, {} as {}
+             FROM players p
+             JOIN games g ON p.id = g.player_id
+             GROUP BY p.id
+             ORDER BY {} DESC
+             LIMIT ?1",
+            column, alias, alias
+        );
+
+        let mut stmt = self.conn.prepare(&query)?;
+        let leaderboard_iter = stmt.query_map(params![limit as i64], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        })?;
+
+        let mut leaderboard = Vec::new();
+        for entry in leaderboard_iter {
+            leaderboard.push(entry?);
+        }
+
+        Ok(leaderboard)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum LeaderboardCategory {
+    HighScore,
+    HighestLevel,
+    MostLines,
+    MaxCombo,
+    Mostquadruples,
+    MostBackToBacks,
 }

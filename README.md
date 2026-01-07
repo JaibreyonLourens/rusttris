@@ -37,7 +37,7 @@ This project is for educational purposes only and is not affiliated with The Tet
 - **Comprehensive Stats Tracking**:
   - Per-game statistics (score, lines, level, piece counts, combos, duration)
   - All-time player statistics (total games, highest scores, averages, totals)
-  - Detailed breakdown: singles, doubles, triples, tetrises, back-to-backs
+  - Detailed breakdown: singles, doubles, triples, quadruples, back-to-backs
   - Game history (last 100 games per player)
   - Playtime tracking
 - **Auto-save**: Games automatically saved to database on completion
@@ -92,7 +92,7 @@ This project is for educational purposes only and is not affiliated with The Tet
 - `id`: Primary key (auto-increment)
 - `player_id`: Foreign key to players
 - `score`, `level`, `lines_cleared`: Game metrics
-- `singles`, `doubles`, `triples`, `tetrises`: Line clear breakdown
+- `singles`, `doubles`, `triples`, `quadruples`: Line clear breakdown
 - `max_combo`, `back_to_backs`: Bonus stats
 - `pieces_placed`, `duration_seconds`: Gameplay stats
 - `played_at`: Unix timestamp

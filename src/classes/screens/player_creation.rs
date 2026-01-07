@@ -1,6 +1,6 @@
 use eframe::egui;
 
-pub fn draw(ui: &mut egui::Ui, player_name: &mut String) -> bool {
+pub fn draw(ui: &mut egui::Ui, player_name: &mut String, error_message: Option<&str>) -> bool {
     let mut should_create = false;
     
     ui.vertical_centered(|ui| {
@@ -16,6 +16,12 @@ pub fn draw(ui: &mut egui::Ui, player_name: &mut String) -> bool {
         // Auto-focus the text input
         if response.gained_focus() || player_name.is_empty() {
             response.request_focus();
+        }
+        
+        // Show error message if present
+        if let Some(error) = error_message {
+            ui.add_space(10.0);
+            ui.colored_label(egui::Color32::RED, error);
         }
         
         ui.add_space(20.0);

@@ -29,7 +29,7 @@ impl HoldQueue {
             self.held_piece = current_piece.take();
             *current_piece = queue.get_next_piece();
         }
-
+        self.held_piece.as_mut().unwrap().back_to_start_position();
         self.can_hold = false; // Disable further holds until piece is locked
     }
 

@@ -325,6 +325,10 @@ impl Piece {
         self.rotation = (self.rotation + 2) % 4;
     }
 
+    pub fn back_to_start_position(&mut self) {
+        self.rotation = 0;
+    }
+
     pub fn draw_preview(&self, ui: &mut eframe::egui::Ui, cell_size: f32) {
         let blocks = self.get_blocks();
         
