@@ -15,9 +15,10 @@ This project is for educational purposes only and is not affiliated with The Tet
 - **7-Bag Randomization System**: Ensures fair piece distribution using the modern Tetris standard
 - **Hold Queue**: Store a piece for later use (C key)
 - **Ghost Pieces**: Semi-transparent preview showing where the current piece will land
+- **DAS (Delayed Auto Shift)**: Modern Tetris-style piece movement with 133ms delay and 33ms auto-repeat rate
 - **Gravity System**: Automatic piece descent with exponential speed increase based on level (1.0s → 0.1s)
 - **Lock Delay**: Grace period (500ms → 100ms based on level) before piece locks, resets on movement/rotation
-- **Piece Movement**: Smooth left/right/down movement with collision detection
+- **Piece Movement**: Smooth horizontal movement with DAS auto-repeat and collision detection
 - **Piece Rotation**: Clockwise and counterclockwise rotation with wall kicks
 - **Hard Drop**: Instantly drop pieces to the bottom (Space)
 - **Soft Drop**: Speed up piece descent for bonus points (Down arrow)
@@ -44,8 +45,9 @@ This project is for educational purposes only and is not affiliated with The Tet
 - **Last Player Loading**: Automatically loads the most recently active player on startup
 
 ### User Interface
-- **Player Creation Screen**: First-time setup for new players with text input
+- **Player Creation Screen**: First-time setup for new players with text input and duplicate name validation
 - **Player Selection Screen**: Scrollable list of all players
+- **Leaderboard Screen**: Multi-category rankings (High Score, Highest Level, Most Lines, Max Combo, Most Tetrises, Back-to-Backs) with top 10 players
 - **Menu Screen**: Main menu showing current player with game options
 - **Game Screen**: Clean layout showing:
   - Hold queue (left)
@@ -57,19 +59,19 @@ This project is for educational purposes only and is not affiliated with The Tet
 
 ### Technical Architecture
 - **Modular Design**: Separated concerns with dedicated modules
-  - `Game`: Core game logic with gravity and lock delay systems
+  - `Game`: Core game logic with DAS, gravity, and lock delay systems
   - `Board`: 10x22 playfield management with overlay support
   - `Piece`: Tetromino shapes, rotations, and transparency rendering
   - `Queue`: 7-bag piece generation
   - `HoldQueue`: Hold functionality
   - `ScoreManager`: Scoring calculations
-  - `ScreenManager`: Screen rendering orchestration
+  - `ScreenManager`: Screen rendering orchestration with state management
   - `Player`: Player identity and statistics aggregation
-  - `DbManager`: SQLite database operations (CRUD for players and games)
-  - `screens/`: Individual screen implementations (menu, paused(not added yet), game_over, player_creation, player_selection)
+  - `DbManager`: SQLite database operations (CRUD for players and games, leaderboard queries)
+  - `screens/`: Individual screen implementations (menu, paused, game_over, player_creation, player_selection, leaderboard)
   - `database/schemas/`: SQL schema definitions (players, games tables)
 - **Repository Pattern**: Database layer separated from domain logic
-- **State Management**: GameState enum for screen transitions (PlayerCreation, PlayerSelection, Menu, Playing, Paused, GameOver)
+- **State Management**: GameState enum for screen transitions (PlayerCreation, PlayerSelection, Menu, Playing, Paused, GameOver, Leaderboard)
 
 ## Controls
 
@@ -100,11 +102,12 @@ This project is for educational purposes only and is not affiliated with The Tet
 ## What's Next?
 
 ### Planned Features
-- **Statistics Display Screen**: Detailed view of player stats and game history
-- **High Score Leaderboard**: Rankings across all players
+- **Statistics Display Screen**: Detailed view of individual player stats and game history
 - **Sound Effects**: Audio feedback for actions and line clears
 - **Visual Effects**: Animations for line clears and level ups
-- **Settings Screen**: Customizable ghost piece transparency, controls remapping
+- **Settings Screen**: Customizable DAS/ARR timing, ghost piece transparency, controls remapping
+- **T-Spin Detection**: Advanced scoring for T-spin maneuvers
+- **Perfect Clear Bonus**: Extra points for clearing the entire board
 
 ## Building and Running
 
@@ -175,4 +178,4 @@ This project is open source and available for educational purposes.
 
 **Status**: Active Development
 
-Current focus: Player statistics display screen and high score leaderboard
+Current focus: Advanced mechanics (T-spins, perfect clears) and visual/audio polish

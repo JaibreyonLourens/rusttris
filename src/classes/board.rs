@@ -1,7 +1,7 @@
 use egui::Color32;
 
 const BOARD_WIDTH: usize = 10;
-const BOARD_HEIGHT: usize = 20;
+const BOARD_HEIGHT: usize = 22;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Cell {

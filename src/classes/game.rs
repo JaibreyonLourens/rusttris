@@ -1,4 +1,3 @@
-
 use super::board::Board;
 use super::piece::Piece;
 use super::queue::Queue;
@@ -25,6 +24,14 @@ pub struct Game {
     lock_delay_timer: f32,
     lock_delay_duration: f32,
     piece_on_ground: bool,
+    left_pressed: bool,
+    right_pressed: bool,
+    left_das_timer: f32,
+    right_das_timer: f32,
+
+    //DAS settings (in seconds)
+    das_delay: f32,
+    das_repeat_interval: f32,
 }
 
 impl Game {
@@ -46,6 +53,13 @@ impl Game {
             lock_delay_timer: 0.0,
             lock_delay_duration: 1.0, // 1000ms at level 1
             piece_on_ground: false,
+            left_pressed: false,
+            right_pressed: false,
+            left_das_timer: 0.0,
+            right_das_timer: 0.0,
+            das_delay: 0.133, // 133ms delay before auto-shift
+            das_repeat_interval: 0.033, // 33ms between auto-shifts
+
         };
         
         // Generate and test 7-bag
@@ -199,6 +213,9 @@ impl Game {
     }
 
     fn handle_input(&mut self, ctx: &egui::Context) {
+        // Get delta time for DAS
+        let delta_time = ctx.input(|i| i.stable_dt);
+        
         ctx.input(|i| {
             // Pause/unpause
             if i.key_pressed(egui::Key::P) {
@@ -214,32 +231,7 @@ impl Game {
                 return;
             }
             
-            // Single key press (triggers once per press)
-            if i.key_pressed(egui::Key::ArrowLeft) {
-                if let Some(piece) = &mut self.current_piece {
-                    piece.move_left();
-                    // Check if valid, if not undo the move
-                    if !self.board.is_valid_position(&piece.get_blocks()) {
-                        piece.move_right(); // Undo
-                    } else {
-                        // Successful move, reset lock delay
-                        self.reset_lock_delay();
-                    }
-                }
-            }
-            
-            if i.key_pressed(egui::Key::ArrowRight) {
-                if let Some(piece) = &mut self.current_piece {
-                    piece.move_right();
-                    // Check if valid, if not undo the move
-                    if !self.board.is_valid_position(&piece.get_blocks()) {
-                        piece.move_left(); // Undo
-                    } else {
-                        // Successful move, reset lock delay
-                        self.reset_lock_delay();
-                    }
-                }
-            }
+        
             
             if i.key_pressed(egui::Key::ArrowUp) {
                 // Rotate piece (to be implemented)
@@ -294,6 +286,101 @@ impl Game {
                 self.hard_drop();
             }
         });
+        
+        // Handle left/right movement with DAS (Delayed Auto Shift) outside of input closure
+        let left_held = ctx.input(|i| i.key_down(egui::Key::ArrowLeft));
+        let right_held = ctx.input(|i| i.key_down(egui::Key::ArrowRight));
+        
+        // Only handle DAS when playing
+        if self.game_state != GameState::Playing {
+            self.left_pressed = false;
+            self.right_pressed = false;
+            self.left_das_timer = 0.0;
+            self.right_das_timer = 0.0;
+            return;
+        }
+        
+        // Handle left key with DAS
+        if left_held {
+            if !self.left_pressed {
+                // Key just pressed - immediate movement
+                if let Some(piece) = &mut self.current_piece {
+                    piece.move_left();
+                    if !self.board.is_valid_position(&piece.get_blocks()) {
+                        piece.move_right(); // Undo
+                    } else {
+                        self.reset_lock_delay();
+                    }
+                }
+                self.left_pressed = true;
+                self.left_das_timer = 0.0;
+            } else {
+                // Key held - apply DAS
+                self.left_das_timer += delta_time;
+                
+                if self.left_das_timer >= self.das_delay {
+                    // DAS delay passed, now auto-repeat at ARR rate
+                    let time_since_das = self.left_das_timer - self.das_delay;
+                    let moves = (time_since_das / self.das_repeat_interval) as i32;
+                    
+                    if moves > 0 {
+                        if let Some(piece) = &mut self.current_piece {
+                            piece.move_left();
+                            if !self.board.is_valid_position(&piece.get_blocks()) {
+                                piece.move_right(); // Undo
+                            } else {
+                                self.reset_lock_delay();
+                            }
+                        }
+                        self.left_das_timer = self.das_delay + (time_since_das % self.das_repeat_interval);
+                    }
+                }
+            }
+        } else {
+            self.left_pressed = false;
+            self.left_das_timer = 0.0;
+        }
+
+        // Handle right key with DAS
+        if right_held {
+            if !self.right_pressed {
+                // Key just pressed - immediate movement
+                if let Some(piece) = &mut self.current_piece {
+                    piece.move_right();
+                    if !self.board.is_valid_position(&piece.get_blocks()) {
+                        piece.move_left(); // Undo
+                    } else {
+                        self.reset_lock_delay();
+                    }
+                }
+                self.right_pressed = true;
+                self.right_das_timer = 0.0;
+            } else {
+                // Key held - apply DAS
+                self.right_das_timer += delta_time;
+                
+                if self.right_das_timer >= self.das_delay {
+                    // DAS delay passed, now auto-repeat at ARR rate
+                    let time_since_das = self.right_das_timer - self.das_delay;
+                    let moves = (time_since_das / self.das_repeat_interval) as i32;
+                    
+                    if moves > 0 {
+                        if let Some(piece) = &mut self.current_piece {
+                            piece.move_right();
+                            if !self.board.is_valid_position(&piece.get_blocks()) {
+                                piece.move_left(); // Undo
+                            } else {
+                                self.reset_lock_delay();
+                            }
+                        }
+                        self.right_das_timer = self.das_delay + (time_since_das % self.das_repeat_interval);
+                    }
+                }
+            }
+        } else {
+            self.right_pressed = false;
+            self.right_das_timer = 0.0;
+        }
     }
 
     fn hard_drop(&mut self) {
