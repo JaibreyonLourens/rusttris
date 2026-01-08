@@ -8,6 +8,7 @@ pub struct ScreenManager {
     player_name_input: String,
     leaderboard_state: screens::leaderboard::LeaderboardState,
     pub player_creation_error: Option<String>,
+    options_screen: screens::options::OptionsScreen,
 }
 
 impl ScreenManager {
@@ -16,10 +17,11 @@ impl ScreenManager {
             player_name_input: String::new(),
             leaderboard_state: screens::leaderboard::LeaderboardState::new(),
             player_creation_error: None,
+            options_screen: screens::options::OptionsScreen::default(),
         }
     }
 
-    pub fn draw(&mut self, game: &mut Game, ui: &mut egui::Ui, player_name: &str, db_manager: &DbManager) -> Option<ScreenAction> {
+    pub fn draw(&mut self, game: &mut Game, ui: &mut egui::Ui, player_name: &str, db_manager: &DbManager, options: &mut crate::classes::game_options::GameOptions) -> Option<ScreenAction> {
         match game.get_state() {
             GameState::PlayerCreation => {
                 if screens::player_creation::draw(ui, &mut self.player_name_input, self.player_creation_error.as_deref()) {
@@ -57,6 +59,7 @@ impl ScreenManager {
                         screens::menu::MenuAction::NewPlayer => ScreenAction::ShowPlayerCreation,
                         screens::menu::MenuAction::SelectPlayer => ScreenAction::ShowPlayerSelection,
                         screens::menu::MenuAction::ShowLeaderboard => ScreenAction::ShowLeaderboard,
+                        screens::menu::MenuAction::ShowOptions => ScreenAction::ShowOptions,
                     });
                 }
                 None
@@ -74,13 +77,34 @@ impl ScreenManager {
                 }
                 None
             },
+            GameState::Options => {
+                if let Some(action) = self.options_screen.draw(ui, options) {
+                    return Some(match action {
+                        screens::options::OptionSelectionAction::Save => {
+                            // Save options to file
+                            if let Err(e) = options.save() {
+                                println!("Error saving options: {}", e);
+                            }
+                            ScreenAction::BackToMenu
+                        },
+                        screens::options::OptionSelectionAction::Cancel => ScreenAction::BackToMenu,
+                    });
+                }
+                None
+            },
             GameState::Playing => {
                 game.draw_game_board(ui);
                 None
             },
             GameState::Paused => {
                 game.draw_game_board(ui);
-                screens::paused::draw(ui);
+                if let Some(action) = screens::paused::draw(ui) {
+                    return Some(match action {
+                        screens::paused::PausedAction::Resume => ScreenAction::ResumeGame,
+                        screens::paused::PausedAction::Restart => ScreenAction::RestartGame,
+                        screens::paused::PausedAction::BackToMenu => ScreenAction::BackToMenu,
+                    });
+                } 
                 None
             },
             GameState::GameOver => {
@@ -97,11 +121,13 @@ impl ScreenManager {
 pub enum ScreenAction {
     StartGame,
     RestartGame,
+    ResumeGame,
     CreatePlayer(String),
     CreatePlayerError(String),
     ShowPlayerCreation,
     SelectPlayer(i64),
     ShowPlayerSelection,
     ShowLeaderboard,
+    ShowOptions,
     BackToMenu,
 }

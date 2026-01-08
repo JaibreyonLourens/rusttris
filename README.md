@@ -48,6 +48,12 @@ This project is for educational purposes only and is not affiliated with The Tet
 - **Player Creation Screen**: First-time setup for new players with text input and duplicate name validation
 - **Player Selection Screen**: Scrollable list of all players
 - **Leaderboard Screen**: Multi-category rankings (High Score, Highest Level, Most Lines, Max Combo, Most Tetrises, Back-to-Backs) with top 10 players
+- **Options Screen**: Configurable settings with live preview
+  - **Key Rebinding**: Click-to-rebind interface for all game actions with visual feedback
+  - **DAS Timing**: Adjustable delay (17-333ms) for auto-shift activation
+  - **ARR Timing**: Adjustable auto-repeat rate (0-83ms) for piece movement speed
+  - **Ghost Piece Opacity**: Slider to control transparency of ghost piece
+  - **Settings Persistence**: All settings saved to `settings.json` and loaded on startup
 - **Menu Screen**: Main menu showing current player with game options
 - **Game Screen**: Clean layout showing:
   - Hold queue (left)
@@ -68,12 +74,18 @@ This project is for educational purposes only and is not affiliated with The Tet
   - `ScreenManager`: Screen rendering orchestration with state management
   - `Player`: Player identity and statistics aggregation
   - `DbManager`: SQLite database operations (CRUD for players and games, leaderboard queries)
-  - `screens/`: Individual screen implementations (menu, paused, game_over, player_creation, player_selection, leaderboard)
+  - `screens/`: Individual screen implementations (menu, paused, game_over, player_creation, player_selection, leaderboard, options)
   - `database/schemas/`: SQL schema definitions (players, games tables)
+- **GameOptions**: Centralized settings management with serialization
+  - Custom key bindings stored as HashMap<GameAction, egui::Key>
+  - DAS/ARR timing configuration
+  - JSON persistence with custom serialization for egui types
 - **Repository Pattern**: Database layer separated from domain logic
-- **State Management**: GameState enum for screen transitions (PlayerCreation, PlayerSelection, Menu, Playing, Paused, GameOver, Leaderboard)
+- **State Management**: GameState enum for screen transitions (PlayerCreation, PlayerSelection, Menu, Playing, Paused, GameOver, Leaderboard, Options)
 
 ## Controls
+
+Default controls (customizable in Options menu):
 
 - **Arrow Keys**: Move piece left/right
 - **Up Arrow / X**: Rotate clockwise
@@ -82,6 +94,8 @@ This project is for educational purposes only and is not affiliated with The Tet
 - **Space**: Hard drop
 - **C**: Hold piece
 - **P**: Pause/unpause game
+
+All key bindings can be changed in the Options screen accessible from the main menu.
 
 ## Database Schema
 
@@ -97,11 +111,14 @@ This project is for educational purposes only and is not affiliated with The Tet
 - `singles`, `doubles`, `triples`, `quadruples`: Line clear breakdown
 - `max_combo`, `back_to_backs`: Bonus stats
 - `pieces_placed`, `duration_seconds`: Gameplay stats
-- `played_at`: Unix timestamp
-
-## What's Next?
+- `pCurrent Development Focus
+- **SRS (Super Rotation System)**: Implementing the official Tetris rotation system with wall kicks
+- **UI Improvements**: Enhanced visual feedback and polish
 
 ### Planned Features
+- **Statistics Display Screen**: Detailed view of individual player stats and game history
+- **Sound Effects**: Audio feedback for actions and line clears
+- **Visual Effects**: Animations for line clears and level ups
 - **Statistics Display Screen**: Detailed view of individual player stats and game history
 - **Sound Effects**: Audio feedback for actions and line clears
 - **Visual Effects**: Animations for line clears and level ups
@@ -123,7 +140,7 @@ cargo run --release
 ### Development Build
 ```bash
 cargo run
-```
+```and settings file `settings.json` are
 
 ### Database Location
 The SQLite database file `rusttris.db` is created in the project root directory.
@@ -143,6 +160,7 @@ rusttris/
 │   │   ├── score_manager.rs      # Scoring system
 │   │   ├── screen_manager.rs     # Screen orchestration
 │   │   ├── player.rs             # Player and statistics structs
+│   │   ├── game_options.rs       # Settings and key bindings
 │   │   ├── database/
 │   │   │   ├── database.rs       # DbManager with CRUD operations
 │   │   │   └── schemas/
@@ -152,9 +170,12 @@ rusttris/
 │   │       ├── menu.rs
 │   │       ├── paused.rs
 │   │       ├── game_over.rs
-│   │       ├── player_creation.rs
+│   │       ├── player_selection.rs
+│   │       ├── leaderboard.rs
+│   │       └── optionsrs
 │   │       └── player_selection.rs
 │   └── enums/
+├── settings.json                 # User settings (generated)
 │       └── states.rs             # Game states
 ├── Cargo.toml
 ├── rusttris.db                   # SQLite database (generated)
@@ -175,7 +196,7 @@ rusttris/
 This project is open source and available for educational purposes.
 
 ---
-
+SRS (Super Rotation System) implementation and UI improvements
 **Status**: Active Development
 
 Current focus: Advanced mechanics (T-spins, perfect clears) and visual/audio polish

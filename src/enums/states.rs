@@ -7,4 +7,5 @@ pub enum GameState {
     Paused,
     GameOver,
     Leaderboard,
+    Options,
 }

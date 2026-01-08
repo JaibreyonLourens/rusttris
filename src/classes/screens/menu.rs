@@ -5,6 +5,7 @@ pub enum MenuAction {
     NewPlayer,
     SelectPlayer,
     ShowLeaderboard,
+    ShowOptions,
 }
 
 pub fn draw(ui: &mut egui::Ui, player_name: &str) -> Option<MenuAction> {
@@ -26,6 +27,12 @@ pub fn draw(ui: &mut egui::Ui, player_name: &str) -> Option<MenuAction> {
         
         if ui.button("Leaderboard").clicked() {
             action = Some(MenuAction::ShowLeaderboard);
+        }
+        
+        ui.add_space(10.0);
+        
+        if ui.button("Options").clicked() {
+            action = Some(MenuAction::ShowOptions);
         }
         
         ui.add_space(10.0);

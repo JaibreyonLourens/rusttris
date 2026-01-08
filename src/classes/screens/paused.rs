@@ -1,14 +1,17 @@
 use eframe::egui;
 
-pub fn draw(ui: &mut egui::Ui) {
+pub enum PausedAction {
+    Resume,
+    Restart,
+    BackToMenu,
+}
+pub fn draw(ui: &mut egui::Ui) -> Option<PausedAction> {
     // Draw semi-transparent overlay
     let screen_rect = ui.ctx().screen_rect();
-    ui.painter().rect_filled(
-        screen_rect,
-        0.0,
-        egui::Color32::from_black_alpha(180),
-    );
-    
+    let mut action: Option<PausedAction> = None;
+    ui.painter()
+        .rect_filled(screen_rect, 0.0, egui::Color32::from_black_alpha(180));
+
     // Center the pause message
     egui::Area::new("pause_overlay".into())
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
@@ -21,8 +24,19 @@ pub fn draw(ui: &mut egui::Ui) {
                     ui.vertical_centered(|ui| {
                         ui.heading("PAUSED");
                         ui.add_space(10.0);
-                        ui.label("Press P to resume");
+                        if ui.button("Resume").clicked() {
+                            action = Some(PausedAction::Resume);
+                        }
+                        ui.add_space(10.0);
+                        if ui.button("Restart Game").clicked() {
+                            action = Some(PausedAction::Restart);
+                        }
+                        ui.add_space(10.0);
+                        if ui.button("Back to Menu").clicked() {
+                            action = Some(PausedAction::BackToMenu);
+                        }
                     });
                 });
         });
+    action
 }

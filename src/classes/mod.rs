@@ -8,3 +8,4 @@ pub mod screens;
 pub mod screen_manager;
 pub mod player;
 pub mod database;
+pub mod game_options;

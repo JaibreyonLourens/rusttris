@@ -1,11 +1,14 @@
 mod classes;
 mod enums;
 
+use crate::classes::database::database::DbManager;
+
 use classes::game::Game;
 use classes::screen_manager::{ScreenManager, ScreenAction};
 use classes::player::Player;
 use eframe::egui;
-use classes::database::database::DbManager;
+
+use crate::classes::game_options::GameOptions;
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
@@ -32,8 +35,12 @@ struct RusttrisApp {
 
 impl RusttrisApp {
     fn new() -> Self {
-        let mut game = Game::new();
+        let options = GameOptions::load();
         let db_manager = DbManager::new();
+        db_manager.init_schemas();
+        
+        let mut game = Game::new(options);
+        
         let player_result = db_manager.get_last_active_player();
         
         println!("Loading last active player...");
@@ -104,9 +111,12 @@ impl eframe::App for RusttrisApp {
             
             ui.vertical_centered(|ui| {
                 // Let screen manager handle all screen rendering
-                if let Some(action) = self.screen_manager.draw(&mut self.game, ui, &self.player.name, &self.db_manager) {
+                let game_ptr = &mut self.game as *mut Game;
+                let options_ptr = unsafe { &mut (*game_ptr).options as *mut GameOptions };
+                if let Some(action) = self.screen_manager.draw(&mut self.game, ui, &self.player.name, &self.db_manager, unsafe { &mut *options_ptr }) {
                     match action {
                         ScreenAction::StartGame => self.game.start_game(),
+                        ScreenAction::ResumeGame => self.game.resume_game(),
                         ScreenAction::RestartGame => self.game.reset_game(),
                         ScreenAction::CreatePlayer(name) => {
                             // Save to database here
@@ -157,6 +167,9 @@ impl eframe::App for RusttrisApp {
                         },
                         ScreenAction::ShowLeaderboard => {
                             self.game.set_state(crate::enums::states::GameState::Leaderboard);
+                        },
+                        ScreenAction::ShowOptions => {
+                            self.game.set_state(crate::enums::states::GameState::Options);
                         },
                     }
                 }

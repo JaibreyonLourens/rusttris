@@ -1,0 +1,47 @@
+{
+  "key_bindings": [
+    [
+      "PauseGame",
+      "P"
+    ],
+    [
+      "HardDrop",
+      "Space"
+    ],
+    [
+      "RotateCCW",
+      "Z"
+    ],
+    [
+      "SoftDrop",
+      "ArrowDown"
+    ],
+    [
+      "RotateCW",
+      "ArrowUp"
+    ],
+    [
+      "HoldPiece",
+      "C"
+    ],
+    [
+      "ResumeGame",
+      "Escape"
+    ],
+    [
+      "RestartGame",
+      "R"
+    ],
+    [
+      "MoveRight",
+      "ArrowRight"
+    ],
+    [
+      "MoveLeft",
+      "ArrowLeft"
+    ]
+  ],
+  "ghost_piece_alpha": 76,
+  "das_delay": 105.0,
+  "arr_delay": 0.0
+}

@@ -4,12 +4,15 @@ use super::queue::Queue;
 use super::score_manager::ScoreManager;
 use super::hold::HoldQueue;
 use super::player::GameStats;
-use crate::enums::states::GameState;
+use crate::{classes::game_options::GameOptions, enums::{game_actions::GameAction, states::GameState}};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+
 
 pub struct Game {
     pub board: Board,
     pub queue: Queue,
+    pub options: GameOptions,
     pub hold_queue: HoldQueue,
     pub current_piece: Option<Piece>,
     level: u32,
@@ -35,10 +38,11 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new() -> Self {
+    pub fn new(options: GameOptions) -> Self {
         let mut game = Self {
             board: Board::new(),
             queue: Queue::new(),
+            options: options,
             hold_queue: HoldQueue::new(),
             current_piece: None,
             level: 1,
@@ -218,7 +222,7 @@ impl Game {
         
         ctx.input(|i| {
             // Pause/unpause
-            if i.key_pressed(egui::Key::P) {
+            if self.is_action_key_pressed(i, GameAction::PauseGame) {
                 match self.game_state {
                     GameState::Playing => self.game_state = GameState::Paused,
                     GameState::Paused => self.game_state = GameState::Playing,
@@ -231,65 +235,63 @@ impl Game {
                 return;
             }
             
-        
-            
-            if i.key_pressed(egui::Key::ArrowUp) {
-                // Rotate piece (to be implemented)
+            // Rotate clockwise
+            if self.is_action_key_pressed(i, GameAction::RotateCW) {
                 if let Some(piece) = &mut self.current_piece {
                     piece.rotate_clockwise();
-                    // Check if valid, if not undo the rotation
                     if !self.board.is_valid_position(&piece.get_blocks()) {
                         piece.rotate_counterclockwise(); // Undo
                     } else {
-                        // Successful rotation, reset lock delay
                         self.reset_lock_delay();
                     }
                 }
             }
 
-            if i.key_pressed(egui::Key::Z) {
-                // Rotate piece counterclockwise
+            // Rotate counterclockwise
+            if self.is_action_key_pressed(i, GameAction::RotateCCW) {
                 if let Some(piece) = &mut self.current_piece {
                     piece.rotate_counterclockwise();
-                    // Check if valid, if not undo the rotation
                     if !self.board.is_valid_position(&piece.get_blocks()) {
                         piece.rotate_clockwise(); // Undo
                     } else {
-                        // Successful rotation, reset lock delay
                         self.reset_lock_delay();
                     }
                 }
             }
             
-            if i.key_pressed(egui::Key::ArrowDown) {
+            // Soft drop
+            if self.is_action_key_pressed(i, GameAction::SoftDrop) {
                 if let Some(piece) = &mut self.current_piece {
                     piece.move_down();
-                    // Check if valid, if not undo the move and lock the piece
                     self.score_manager.drop(1, 1);
                     if !self.board.is_valid_position(&piece.get_blocks()) {
                         piece.move_up(); // Undo
                         self.piece_on_ground = true; // Start lock delay
                     } else {
-                        // Successful move, reset lock delay
                         self.reset_lock_delay();
                     }
-
                 }
             }
-            if i.key_pressed(egui::Key::C) {
-                // Hold piece
+            
+            // Hold piece
+            if self.is_action_key_pressed(i, GameAction::HoldPiece) {
                 self.hold_queue.hold_piece(&mut self.current_piece, &mut self.queue);
             }
             
-            if i.key_pressed(egui::Key::Space) {
-                // Hard drop
+            // Hard drop
+            if self.is_action_key_pressed(i, GameAction::HardDrop) {
                 self.hard_drop();
+            }
+            
+            // Restart game
+            if i.key_pressed(egui::Key::R) {
+                self.reset_game();
             }
         });
         
         // Handle left/right movement with DAS (Delayed Auto Shift) outside of input closure
-        let left_held = ctx.input(|i| i.key_down(egui::Key::ArrowLeft));
-        let right_held = ctx.input(|i| i.key_down(egui::Key::ArrowRight));
+        let left_held = self.is_action_held(ctx, GameAction::MoveLeft);
+        let right_held = self.is_action_held(ctx, GameAction::MoveRight);
         
         // Only handle DAS when playing
         if self.game_state != GameState::Playing {
@@ -382,7 +384,10 @@ impl Game {
             self.right_das_timer = 0.0;
         }
     }
-
+    fn is_action_pressed(&self, ctx: &egui::Context, action: GameAction) -> bool {
+        let key = self.options.key_bindings.get(&action);
+        ctx.input(|i| key.map_or(false, |k| i.key_down(*k)))
+    }
     fn hard_drop(&mut self) {
         if let Some(piece) = &mut self.current_piece {
             let mut cells_dropped = 0;
@@ -544,9 +549,14 @@ impl Game {
             .unwrap()
             .as_secs();
     }
+
+    pub fn resume_game(&mut self) {
+        self.game_state = GameState::Playing;
+    }
     
     pub fn reset_game(&mut self) {
-        *self = Self::new();
+        let options = self.options.clone();
+        *self = Self::new(options);
         self.game_state = GameState::Playing;
         self.queue.generate_seven_bag();
         self.current_piece = self.queue.get_next_piece();
@@ -559,5 +569,23 @@ impl Game {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
+    }
+    
+    // Helper method for checking if action key was pressed (single press)
+    fn is_action_key_pressed(&self, input: &egui::InputState, action: GameAction) -> bool {
+        if let Some(key) = self.options.key_bindings.get(&action) {
+            input.key_pressed(*key)
+        } else {
+            false
+        }
+    }
+
+    // Helper method for checking if action key is held down
+    fn is_action_held(&self, ctx: &egui::Context, action: GameAction) -> bool {
+        if let Some(key) = self.options.key_bindings.get(&action) {
+            ctx.input(|i| i.key_down(*key))
+        } else {
+            false
+        }
     }
 }
