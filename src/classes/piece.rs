@@ -1,5 +1,108 @@
 use eframe::egui::Color32;
 
+// SRS Rotation States
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum RotationState {
+    Zero,   // Spawn state
+    R,      // Clockwise rotation from spawn
+    Two,    // 180 degrees from spawn
+    L,      // Counter-clockwise rotation from spawn
+}
+
+impl RotationState {
+    fn to_index(self) -> usize {
+        match self {
+            RotationState::Zero => 0,
+            RotationState::R => 1,
+            RotationState::Two => 2,
+            RotationState::L => 3,
+        }
+    }
+
+    fn next_cw(self) -> Self {
+        match self {
+            RotationState::Zero => RotationState::R,
+            RotationState::R => RotationState::Two,
+            RotationState::Two => RotationState::L,
+            RotationState::L => RotationState::Zero,
+        }
+    }
+
+    fn next_ccw(self) -> Self {
+        match self {
+            RotationState::Zero => RotationState::L,
+            RotationState::L => RotationState::Two,
+            RotationState::Two => RotationState::R,
+            RotationState::R => RotationState::Zero,
+        }
+    }
+}
+
+// SRS Wall Kick Data for J, L, S, T, Z pieces
+// Format: [test1, test2, test3, test4, test5] where each test is (x_offset, y_offset)
+const JLSTZ_KICKS: [[[(i32, i32); 5]; 4]; 4] = [
+    // From 0 (spawn)
+    [
+        [(0, 0), (-1, 0), (-1, 1), (0, -2), (-1, -2)],  // 0->R
+        [(0, 0), (1, 0), (1, 1), (0, -2), (1, -2)],     // 0->L
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+    ],
+    // From R
+    [
+        [(0, 0), (1, 0), (1, -1), (0, 2), (1, 2)],      // R->0
+        [(0, 0), (1, 0), (1, -1), (0, 2), (1, 2)],      // R->2
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+    ],
+    // From 2
+    [
+        [(0, 0), (1, 0), (1, 1), (0, -2), (1, -2)],     // 2->L
+        [(0, 0), (-1, 0), (-1, 1), (0, -2), (-1, -2)],  // 2->R
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+    ],
+    // From L
+    [
+        [(0, 0), (-1, 0), (-1, -1), (0, 2), (-1, 2)],   // L->0
+        [(0, 0), (-1, 0), (-1, -1), (0, 2), (-1, 2)],   // L->2
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+    ],
+];
+
+// SRS Wall Kick Data for I piece
+const I_KICKS: [[[(i32, i32); 5]; 4]; 4] = [
+    // From 0 (spawn)
+    [
+        [(0, 0), (-2, 0), (1, 0), (-2, -1), (1, 2)],    // 0->R
+        [(0, 0), (-1, 0), (2, 0), (-1, 2), (2, -1)],    // 0->L
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+    ],
+    // From R
+    [
+        [(0, 0), (2, 0), (-1, 0), (2, 1), (-1, -2)],    // R->0
+        [(0, 0), (-1, 0), (2, 0), (-1, 2), (2, -1)],    // R->2
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+    ],
+    // From 2
+    [
+        [(0, 0), (2, 0), (-1, 0), (2, 1), (-1, -2)],    // 2->L
+        [(0, 0), (1, 0), (-2, 0), (1, -2), (-2, 1)],    // 2->R
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+    ],
+    // From L
+    [
+        [(0, 0), (1, 0), (-2, 0), (1, -2), (-2, 1)],    // L->0
+        [(0, 0), (1, 0), (-2, 0), (1, -2), (-2, 1)],    // L->2
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],       // Unused
+    ],
+];
+
 // I piece uses 4x4 grid - 4 rotations
 const I_ROTATIONS: [[[u8; 4]; 4]; 4] = [
     // Rotation 0 - Horizontal
@@ -189,7 +292,7 @@ enum PieceShape {
 pub struct Piece {
     name: String,
     color: Color32,
-    rotation: u8,
+    rotation: RotationState,
     id: u8,
     xpos: i32,
     ypos: i32,
@@ -201,7 +304,7 @@ impl Piece {
         Self {
             name: name.to_string(),
             color,
-            rotation: 0,
+            rotation: RotationState::Zero,
             id,
             xpos: 3,
             ypos: 0,
@@ -213,7 +316,7 @@ impl Piece {
         Self {
             name: name.to_string(),
             color,
-            rotation: 0,
+            rotation: RotationState::Zero,
             id,
             xpos: 3,
             ypos: 0,
@@ -225,7 +328,7 @@ impl Piece {
         Self {
             name: name.to_string(),
             color,
-            rotation: 0,
+            rotation: RotationState::Zero,
             id,
             xpos: 4,
             ypos: 0,
@@ -251,7 +354,7 @@ impl Piece {
         
         match &self.shape {
             PieceShape::Large(rotations) => {
-                let shape = &rotations[self.rotation as usize];
+                let shape = &rotations[self.rotation.to_index()];
                 for (row, line) in shape.iter().enumerate() {
                     for (col, &cell) in line.iter().enumerate() {
                         if cell == self.id {
@@ -261,7 +364,7 @@ impl Piece {
                 }
             }
             PieceShape::Small(rotations) => {
-                let shape = &rotations[self.rotation as usize];
+                let shape = &rotations[self.rotation.to_index()];
                 for (row, line) in shape.iter().enumerate() {
                     for (col, &cell) in line.iter().enumerate() {
                         if cell == self.id {
@@ -314,19 +417,76 @@ impl Piece {
     }
 
     pub fn rotate_clockwise(&mut self) {
-        self.rotation = (self.rotation + 1) % 4;
+        self.rotation = self.rotation.next_cw();
     }
 
     pub fn rotate_counterclockwise(&mut self) {
-        self.rotation = if self.rotation == 0 { 3 } else { self.rotation - 1 };
+        self.rotation = self.rotation.next_ccw();
     }
 
     pub fn rotate_180(&mut self) {
-        self.rotation = (self.rotation + 2) % 4;
+        self.rotation = self.rotation.next_cw().next_cw();
     }
 
     pub fn back_to_start_position(&mut self) {
-        self.rotation = 0;
+        self.rotation = RotationState::Zero;
+    }
+    
+    /// Try to rotate clockwise with SRS wall kicks
+    /// Returns a list of (x_offset, y_offset) kick positions to try, in order
+    pub fn get_cw_kick_offsets(&self) -> Vec<(i32, i32)> {
+        let from_state = self.rotation;
+        let to_state = from_state.next_cw();
+        self.get_kick_offsets(from_state, to_state)
+    }
+    
+    /// Try to rotate counterclockwise with SRS wall kicks
+    /// Returns a list of (x_offset, y_offset) kick positions to try, in order
+    pub fn get_ccw_kick_offsets(&self) -> Vec<(i32, i32)> {
+        let from_state = self.rotation;
+        let to_state = from_state.next_ccw();
+        self.get_kick_offsets(from_state, to_state)
+    }
+    
+    fn get_kick_offsets(&self, from: RotationState, to: RotationState) -> Vec<(i32, i32)> {
+        // O piece doesn't rotate, no kicks needed
+        if matches!(self.shape, PieceShape::Mini(_)) {
+            return vec![(0, 0)];
+        }
+        
+        let kick_table = if self.name == "I" {
+            &I_KICKS
+        } else {
+            &JLSTZ_KICKS
+        };
+        
+        let from_idx = from.to_index();
+        let kick_idx = match (from, to) {
+            (RotationState::Zero, RotationState::R) => 0,
+            (RotationState::Zero, RotationState::L) => 1,
+            (RotationState::R, RotationState::Zero) => 0,
+            (RotationState::R, RotationState::Two) => 1,
+            (RotationState::Two, RotationState::L) => 0,
+            (RotationState::Two, RotationState::R) => 1,
+            (RotationState::L, RotationState::Zero) => 0,
+            (RotationState::L, RotationState::Two) => 1,
+            _ => 0, // Should not happen
+        };
+        
+        kick_table[from_idx][kick_idx].to_vec()
+    }
+    
+    pub fn get_xpos(&self) -> i32 {
+        self.xpos
+    }
+    
+    pub fn get_ypos(&self) -> i32 {
+        self.ypos
+    }
+    
+    pub fn set_position(&mut self, x: i32, y: i32) {
+        self.xpos = x;
+        self.ypos = y;
     }
 
     pub fn draw_preview(&self, ui: &mut eframe::egui::Ui, cell_size: f32) {

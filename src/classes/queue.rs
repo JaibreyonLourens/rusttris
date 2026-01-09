@@ -40,24 +40,31 @@ impl Queue {
     }
 
     pub fn get_next_piece(&mut self) -> Option<Piece> {
-        // If next_pieces is empty, refill it
-        if self.next_pieces.is_empty() {
-            self.generate_new_next_bag();
+        // If pieces is empty, generate initial bags
+        if self.pieces.is_empty() {
+            self.generate_seven_bag();
         }
 
-        // Remove and return the first piece
-        if !self.pieces.is_empty() {
-            let piece = self.pieces.remove(0);
-            // Add the first piece from next_pieces to pieces
-            if !self.next_pieces.is_empty() {
-                let next_piece = self.next_pieces.remove(0);
-                self.pieces.push(next_piece);
-            }
-            Some(piece)
+        // Remove and return the first piece from pieces
+        let piece = if !self.pieces.is_empty() {
+            Some(self.pieces.remove(0))
         } else {
-            self.generate_seven_bag();
-            self.get_next_piece()
+            None
+        };
+
+        // Refill pieces from next_pieces to keep it at 7
+        if self.next_pieces.is_empty() {
+            // Generate a new next bag if it's empty
+            self.generate_new_next_bag();
         }
+        
+        // Now move one piece from next_pieces to pieces (guaranteed to have items now)
+        if !self.next_pieces.is_empty() {
+            let next_piece = self.next_pieces.remove(0);
+            self.pieces.push(next_piece);
+        }
+
+        piece
     }
 
     fn generate_new_next_bag(&mut self) {

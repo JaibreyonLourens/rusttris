@@ -68,6 +68,14 @@ impl Game {
         
         // Generate and test 7-bag
         game.queue.generate_seven_bag();
+        
+        // Log initial queue state
+        let (current_pieces, next_pieces) = game.queue.get_piece_names();
+        println!("\n=== Initial Queue State ===");
+        println!("Current pieces (visible): {:?}", current_pieces);
+        println!("Next pieces (background): {:?}", next_pieces);
+        println!("===========================\n");
+        
         game.current_piece = game.queue.get_next_piece();
 
     
@@ -235,27 +243,63 @@ impl Game {
                 return;
             }
             
-            // Rotate clockwise
+            // Rotate clockwise with SRS wall kicks
             if self.is_action_key_pressed(i, GameAction::RotateCW) {
+                let mut rotation_success = false;
                 if let Some(piece) = &mut self.current_piece {
+                    let kick_offsets = piece.get_cw_kick_offsets();
+                    let original_x = piece.get_xpos();
+                    let original_y = piece.get_ypos();
+                    
                     piece.rotate_clockwise();
-                    if !self.board.is_valid_position(&piece.get_blocks()) {
-                        piece.rotate_counterclockwise(); // Undo
-                    } else {
-                        self.reset_lock_delay();
+                    
+                    // Try each kick offset in order
+                    for (kick_x, kick_y) in kick_offsets {
+                        piece.set_position(original_x + kick_x, original_y - kick_y);
+                        if self.board.is_valid_position(&piece.get_blocks()) {
+                            rotation_success = true;
+                            break;
+                        }
                     }
+                    
+                    if !rotation_success {
+                        // All kicks failed, undo rotation
+                        piece.rotate_counterclockwise();
+                        piece.set_position(original_x, original_y);
+                    }
+                }
+                if rotation_success {
+                    self.reset_lock_delay();
                 }
             }
 
-            // Rotate counterclockwise
+            // Rotate counterclockwise with SRS wall kicks
             if self.is_action_key_pressed(i, GameAction::RotateCCW) {
+                let mut rotation_success = false;
                 if let Some(piece) = &mut self.current_piece {
+                    let kick_offsets = piece.get_ccw_kick_offsets();
+                    let original_x = piece.get_xpos();
+                    let original_y = piece.get_ypos();
+                    
                     piece.rotate_counterclockwise();
-                    if !self.board.is_valid_position(&piece.get_blocks()) {
-                        piece.rotate_clockwise(); // Undo
-                    } else {
-                        self.reset_lock_delay();
+                    
+                    // Try each kick offset in order
+                    for (kick_x, kick_y) in kick_offsets {
+                        piece.set_position(original_x + kick_x, original_y - kick_y);
+                        if self.board.is_valid_position(&piece.get_blocks()) {
+                            rotation_success = true;
+                            break;
+                        }
                     }
+                    
+                    if !rotation_success {
+                        // All kicks failed, undo rotation
+                        piece.rotate_clockwise();
+                        piece.set_position(original_x, original_y);
+                    }
+                }
+                if rotation_success {
+                    self.reset_lock_delay();
                 }
             }
             
@@ -481,6 +525,13 @@ impl Game {
     fn spawn_next_piece(&mut self) {
         self.current_piece = self.queue.get_next_piece();
         
+        // Log queue state
+        let (current_pieces, next_pieces) = self.queue.get_piece_names();
+        println!("\n=== Queue State ===");
+        println!("Current pieces (visible): {:?}", current_pieces);
+        println!("Next pieces (background): {:?}", next_pieces);
+        println!("==================\n");
+        
         if let Some(piece) = &self.current_piece {
             // Check if the new piece collides immediately (game over condition)
             if !self.board.is_valid_position(&piece.get_blocks()) {
@@ -537,8 +588,6 @@ impl Game {
     
     pub fn start_game(&mut self) {
         self.game_state = GameState::Playing;
-        self.queue.generate_seven_bag();
-        self.current_piece = self.queue.get_next_piece();
         self.drop_interval = self.calculate_drop_interval();
         self.lock_delay_duration = self.calculate_lock_delay();
         
@@ -562,8 +611,6 @@ impl Game {
         let options = self.options.clone();
         *self = Self::new(options);
         self.game_state = GameState::Playing;
-        self.queue.generate_seven_bag();
-        self.current_piece = self.queue.get_next_piece();
         self.drop_interval = self.calculate_drop_interval();
         self.lock_delay_duration = self.calculate_lock_delay();
         
