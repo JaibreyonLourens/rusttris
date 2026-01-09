@@ -483,6 +483,10 @@ impl Piece {
     pub fn get_ypos(&self) -> i32 {
         self.ypos
     }
+
+    pub fn get_position(&self) -> (i32, i32) {
+        (self.xpos, self.ypos)
+    }
     
     pub fn set_position(&mut self, x: i32, y: i32) {
         self.xpos = x;

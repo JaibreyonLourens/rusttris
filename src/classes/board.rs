@@ -25,6 +25,7 @@ fn get_color_from_id(id: u8) -> Option<Color32> {
 pub struct Board {
     pub cells: [[Cell; BOARD_WIDTH]; BOARD_HEIGHT],
     pub cell_size: f32,
+    filled_cells: usize, // Track number of filled cells for O(1) all-clear checks
 }
 
 impl Board {
@@ -32,6 +33,7 @@ impl Board {
         Self {
             cells: [[Cell { id: 0 }; BOARD_WIDTH]; BOARD_HEIGHT],
             cell_size: 30.0,
+            filled_cells: 0,
         }
     }
 
@@ -105,7 +107,15 @@ impl Board {
 
     pub fn set_cell(&mut self, row: usize, col: usize, id: u8) {
         if row < BOARD_HEIGHT && col < BOARD_WIDTH {
+            let old_id = self.cells[row][col].id;
             self.cells[row][col].id = id;
+            
+            // Update filled cells counter
+            if old_id == 0 && id != 0 {
+                self.filled_cells += 1;
+            } else if old_id != 0 && id == 0 {
+                self.filled_cells -= 1;
+            }
         }
     }
     
@@ -162,5 +172,13 @@ impl Board {
         }
         // Add empty row at top
         self.cells[0] = [Cell { id: 0 }; BOARD_WIDTH];
+        
+        // Decrement counter for the cleared line (BOARD_WIDTH cells)
+        self.filled_cells -= BOARD_WIDTH;
+    }
+    
+    // O(1) check for all clear - just check if counter is 0
+    pub fn is_all_clear(&self) -> bool {
+        self.filled_cells == 0
     }
 }

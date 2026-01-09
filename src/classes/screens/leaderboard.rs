@@ -62,6 +62,27 @@ pub fn draw(
             }
 
             if ui.selectable_label(
+                matches!(state.current_category, LeaderboardCategory::MostSingles),
+                "Singles"
+            ).clicked() {
+                state.current_category = LeaderboardCategory::MostSingles;
+            }
+
+            if ui.selectable_label(
+                matches!(state.current_category, LeaderboardCategory::MostDoubles),
+                "Doubles"
+            ).clicked() {
+                state.current_category = LeaderboardCategory::MostDoubles;
+            }
+
+            if ui.selectable_label(
+                matches!(state.current_category, LeaderboardCategory::MostTriples),
+                "Triples"
+            ).clicked() {
+                state.current_category = LeaderboardCategory::MostTriples;
+            }
+
+            if ui.selectable_label(
                 matches!(state.current_category, LeaderboardCategory::Mostquadruples),
                 "Most quadruples"
             ).clicked() {
@@ -74,6 +95,20 @@ pub fn draw(
             ).clicked() {
                 state.current_category = LeaderboardCategory::MostBackToBacks;
             }
+
+            if ui.selectable_label(
+                matches!(state.current_category, LeaderboardCategory::MostTSpins),
+                "Most T-Spins"
+            ).clicked() {
+                state.current_category = LeaderboardCategory::MostTSpins;
+            }
+
+            if ui.selectable_label(
+                matches!(state.current_category, LeaderboardCategory::MostAllClears),
+                "All Clears"
+            ).clicked() {
+                state.current_category = LeaderboardCategory::MostAllClears;
+            }
         });
 
         ui.add_space(20.0);
@@ -84,8 +119,13 @@ pub fn draw(
             LeaderboardCategory::HighestLevel => "Highest Levels",
             LeaderboardCategory::MostLines => "Most Lines Cleared",
             LeaderboardCategory::MaxCombo => "Maximum Combos",
+            LeaderboardCategory::MostSingles => "Most Singles",
+            LeaderboardCategory::MostDoubles => "Most Doubles",
+            LeaderboardCategory::MostTriples => "Most Triples",
             LeaderboardCategory::Mostquadruples => "Most quadruples",
             LeaderboardCategory::MostBackToBacks => "Most Back-to-Backs",
+            LeaderboardCategory::MostTSpins => "Most T-Spins",
+            LeaderboardCategory::MostAllClears => "Most All Clears",
         };
         ui.label(egui::RichText::new(category_name).size(18.0).strong());
         ui.add_space(15.0);

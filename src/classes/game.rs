@@ -1,13 +1,14 @@
 use super::board::Board;
+use super::hold::HoldQueue;
 use super::piece::Piece;
+use super::player::GameStats;
 use super::queue::Queue;
 use super::score_manager::ScoreManager;
-use super::hold::HoldQueue;
-use super::player::GameStats;
-use crate::{classes::game_options::GameOptions, enums::{game_actions::GameAction, states::GameState}};
+use crate::{
+    classes::game_options::GameOptions,
+    enums::{game_actions::GameAction, states::GameState, t_spin_type::TSpinType},
+};
 use std::time::{SystemTime, UNIX_EPOCH};
-
-
 
 pub struct Game {
     pub board: Board,
@@ -28,6 +29,7 @@ pub struct Game {
     lock_delay_duration: f32,
     piece_on_ground: bool,
     left_pressed: bool,
+    last_action_was_rotation: bool,
     right_pressed: bool,
     left_das_timer: f32,
     right_das_timer: f32,
@@ -59,51 +61,49 @@ impl Game {
             piece_on_ground: false,
             left_pressed: false,
             right_pressed: false,
+            last_action_was_rotation: false,
             left_das_timer: 0.0,
             right_das_timer: 0.0,
-            das_delay: 0.133, // 133ms delay before auto-shift
+            das_delay: 0.133,           // 133ms delay before auto-shift
             das_repeat_interval: 0.033, // 33ms between auto-shifts
-
         };
-        
+
         // Generate and test 7-bag
         game.queue.generate_seven_bag();
-        
+
         // Log initial queue state
         let (current_pieces, next_pieces) = game.queue.get_piece_names();
         println!("\n=== Initial Queue State ===");
         println!("Current pieces (visible): {:?}", current_pieces);
         println!("Next pieces (background): {:?}", next_pieces);
         println!("===========================\n");
-        
+
         game.current_piece = game.queue.get_next_piece();
 
-    
-        
         game
     }
 
     pub fn update(&mut self, ctx: &egui::Context) {
         self.handle_input(ctx);
-        
+
         // Only apply gravity when playing
         if self.game_state == GameState::Playing {
             // Get delta time from egui
             let delta_time = ctx.input(|i| i.stable_dt);
-            
+
             // Update drop timer
             self.drop_timer += delta_time;
-            
+
             // Check if it's time to drop the piece
             if self.drop_timer >= self.drop_interval {
                 self.drop_timer = 0.0;
                 self.apply_gravity();
             }
-            
+
             // Handle lock delay when piece is on ground
             if self.piece_on_ground {
                 self.lock_delay_timer += delta_time;
-                
+
                 if self.lock_delay_timer >= self.lock_delay_duration {
                     self.lock_piece();
                     self.piece_on_ground = false;
@@ -111,7 +111,7 @@ impl Game {
                 }
             }
         }
-        
+
         // Request repaint for smooth animation
         ctx.request_repaint();
     }
@@ -137,7 +137,7 @@ impl Game {
         self.current_game_stats.score = self.score_manager.get_score();
         self.current_game_stats.lines_cleared = self.lines_cleared;
         self.current_game_stats.level_reached = self.level;
-        
+
         // Calculate duration
         if self.game_start_time > 0 {
             let now = SystemTime::now()
@@ -146,14 +146,14 @@ impl Game {
                 .as_secs();
             self.current_game_stats.duration_seconds = now - self.game_start_time;
         }
-        
+
         self.current_game_stats.clone()
     }
 
     pub fn draw_game_board(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             // Left side - the game board
-            ui.vertical(|ui | {
+            ui.vertical(|ui| {
                 self.hold_queue.draw(ui);
             });
             ui.vertical(|ui| {
@@ -161,7 +161,7 @@ impl Game {
                 let mut ghost_blocks = Vec::new();
                 if let Some(piece) = &self.current_piece {
                     let mut ghost_piece = piece.clone();
-                    
+
                     // Drop ghost piece until it collides
                     loop {
                         ghost_piece.move_down();
@@ -170,29 +170,29 @@ impl Game {
                             break;
                         }
                     }
-                    
+
                     // Get ghost blocks with transparent color
                     let ghost_color = ghost_piece.get_color_with_alpha(60);
                     for (row, col) in ghost_piece.get_blocks() {
                         ghost_blocks.push((row, col, ghost_color));
                     }
                 }
-              
+
                 // Temporarily draw current piece on board
                 if let Some(piece) = &self.current_piece {
                     let blocks = piece.get_blocks();
                     let id = piece.get_id();
-                    
+
                     for (row, col) in &blocks {
                         if *row >= 0 && *col >= 0 {
                             self.board.set_cell(*row as usize, *col as usize, id);
                         }
                     }
                 }
-                
+
                 // Draw board with ghost piece overlay
                 self.board.draw_with_overlay(ui, &ghost_blocks);
-                
+
                 // Clear piece blocks after drawing
                 if let Some(piece) = &self.current_piece {
                     let blocks = piece.get_blocks();
@@ -203,9 +203,9 @@ impl Game {
                     }
                 }
             });
-            
+
             ui.add_space(20.0);
-            
+
             // Right side - the queue and stats
             ui.vertical(|ui| {
                 // Display score and stats
@@ -215,9 +215,9 @@ impl Game {
                 ui.label(format!("Level: {}", self.level));
                 ui.label(format!("Lines: {}", self.lines_cleared));
                 ui.label(format!("Combo: {}", self.combo));
-                
+
                 ui.add_space(20.0);
-                
+
                 // Display next pieces
                 self.queue.draw(ui, 5); // Show next 5 pieces
             });
@@ -227,7 +227,7 @@ impl Game {
     fn handle_input(&mut self, ctx: &egui::Context) {
         // Get delta time for DAS
         let delta_time = ctx.input(|i| i.stable_dt);
-        
+
         ctx.input(|i| {
             // Pause/unpause
             if self.is_action_key_pressed(i, GameAction::PauseGame) {
@@ -237,52 +237,22 @@ impl Game {
                     _ => {}
                 }
             }
-            
+
             // Only handle game input when playing
             if self.game_state != GameState::Playing {
                 return;
             }
-            
-            // Rotate clockwise with SRS wall kicks
-            if self.is_action_key_pressed(i, GameAction::RotateCW) {
-                let mut rotation_success = false;
-                if let Some(piece) = &mut self.current_piece {
-                    let kick_offsets = piece.get_cw_kick_offsets();
-                    let original_x = piece.get_xpos();
-                    let original_y = piece.get_ypos();
-                    
-                    piece.rotate_clockwise();
-                    
-                    // Try each kick offset in order
-                    for (kick_x, kick_y) in kick_offsets {
-                        piece.set_position(original_x + kick_x, original_y - kick_y);
-                        if self.board.is_valid_position(&piece.get_blocks()) {
-                            rotation_success = true;
-                            break;
-                        }
-                    }
-                    
-                    if !rotation_success {
-                        // All kicks failed, undo rotation
-                        piece.rotate_counterclockwise();
-                        piece.set_position(original_x, original_y);
-                    }
-                }
-                if rotation_success {
-                    self.reset_lock_delay();
-                }
-            }
 
-            // Rotate counterclockwise with SRS wall kicks
+            // Rotate counterclockwise
             if self.is_action_key_pressed(i, GameAction::RotateCCW) {
                 let mut rotation_success = false;
                 if let Some(piece) = &mut self.current_piece {
                     let kick_offsets = piece.get_ccw_kick_offsets();
                     let original_x = piece.get_xpos();
                     let original_y = piece.get_ypos();
-                    
+
                     piece.rotate_counterclockwise();
-                    
+
                     // Try each kick offset in order
                     for (kick_x, kick_y) in kick_offsets {
                         piece.set_position(original_x + kick_x, original_y - kick_y);
@@ -291,7 +261,7 @@ impl Game {
                             break;
                         }
                     }
-                    
+
                     if !rotation_success {
                         // All kicks failed, undo rotation
                         piece.rotate_clockwise();
@@ -300,9 +270,49 @@ impl Game {
                 }
                 if rotation_success {
                     self.reset_lock_delay();
+                    self.last_action_was_rotation = true; // Set flag
                 }
             }
-            
+
+            // Rotate clockwise
+            if self.is_action_key_pressed(i, GameAction::RotateCW) {
+                let mut rotation_success = false;
+                if let Some(piece) = &mut self.current_piece {
+                    let kick_offsets = piece.get_cw_kick_offsets();
+                    let original_x = piece.get_xpos();
+                    let original_y = piece.get_ypos();
+
+                    piece.rotate_clockwise();
+
+                    // Try each kick offset in order
+                    for (kick_x, kick_y) in kick_offsets {
+                        piece.set_position(original_x + kick_x, original_y - kick_y);
+                        if self.board.is_valid_position(&piece.get_blocks()) {
+                            rotation_success = true;
+                            break;
+                        }
+                    }
+
+                    if !rotation_success {
+                        // All kicks failed, undo rotation
+                        piece.rotate_counterclockwise();
+                        piece.set_position(original_x, original_y);
+                    }
+                }
+                if rotation_success {
+                    self.reset_lock_delay();
+                    self.last_action_was_rotation = true; // Set flag
+                }
+            }
+
+            // Reset flag on movement
+            if self.is_action_key_pressed(i, GameAction::MoveLeft)
+                || self.is_action_key_pressed(i, GameAction::MoveRight)
+                || self.is_action_key_pressed(i, GameAction::SoftDrop)
+            {
+                self.last_action_was_rotation = false;
+            }
+
             // Soft drop
             if self.is_action_key_pressed(i, GameAction::SoftDrop) {
                 if let Some(piece) = &mut self.current_piece {
@@ -316,27 +326,28 @@ impl Game {
                     }
                 }
             }
-            
+
             // Hold piece
             if self.is_action_key_pressed(i, GameAction::HoldPiece) {
-                self.hold_queue.hold_piece(&mut self.current_piece, &mut self.queue);
+                self.hold_queue
+                    .hold_piece(&mut self.current_piece, &mut self.queue);
             }
-            
+
             // Hard drop
             if self.is_action_key_pressed(i, GameAction::HardDrop) {
                 self.hard_drop();
             }
-            
+
             // Restart game
             if i.key_pressed(egui::Key::R) {
                 self.reset_game();
             }
         });
-        
+
         // Handle left/right movement with DAS (Delayed Auto Shift) outside of input closure
         let left_held = self.is_action_held(ctx, GameAction::MoveLeft);
         let right_held = self.is_action_held(ctx, GameAction::MoveRight);
-        
+
         // Only handle DAS when playing
         if self.game_state != GameState::Playing {
             self.left_pressed = false;
@@ -345,7 +356,7 @@ impl Game {
             self.right_das_timer = 0.0;
             return;
         }
-        
+
         // Handle left key with DAS
         if left_held {
             if !self.left_pressed {
@@ -363,12 +374,12 @@ impl Game {
             } else {
                 // Key held - apply DAS
                 self.left_das_timer += delta_time;
-                
+
                 if self.left_das_timer >= self.das_delay {
                     // DAS delay passed, now auto-repeat at ARR rate
                     let time_since_das = self.left_das_timer - self.das_delay;
                     let moves = (time_since_das / self.das_repeat_interval) as i32;
-                    
+
                     if moves > 0 {
                         if let Some(piece) = &mut self.current_piece {
                             piece.move_left();
@@ -378,7 +389,8 @@ impl Game {
                                 self.reset_lock_delay();
                             }
                         }
-                        self.left_das_timer = self.das_delay + (time_since_das % self.das_repeat_interval);
+                        self.left_das_timer =
+                            self.das_delay + (time_since_das % self.das_repeat_interval);
                     }
                 }
             }
@@ -404,12 +416,12 @@ impl Game {
             } else {
                 // Key held - apply DAS
                 self.right_das_timer += delta_time;
-                
+
                 if self.right_das_timer >= self.das_delay {
                     // DAS delay passed, now auto-repeat at ARR rate
                     let time_since_das = self.right_das_timer - self.das_delay;
                     let moves = (time_since_das / self.das_repeat_interval) as i32;
-                    
+
                     if moves > 0 {
                         if let Some(piece) = &mut self.current_piece {
                             piece.move_right();
@@ -419,7 +431,8 @@ impl Game {
                                 self.reset_lock_delay();
                             }
                         }
-                        self.right_das_timer = self.das_delay + (time_since_das % self.das_repeat_interval);
+                        self.right_das_timer =
+                            self.das_delay + (time_since_das % self.das_repeat_interval);
                     }
                 }
             }
@@ -435,7 +448,7 @@ impl Game {
     fn hard_drop(&mut self) {
         if let Some(piece) = &mut self.current_piece {
             let mut cells_dropped = 0;
-            
+
             // Move piece down until it collides
             loop {
                 piece.move_down();
@@ -445,19 +458,19 @@ impl Game {
                 }
                 cells_dropped += 1;
             }
-            
+
             // Award hard drop points (2 points per cell)
             if cells_dropped > 0 {
                 self.score_manager.drop(2, cells_dropped);
             }
         }
-        
+
         // Lock the piece immediately (bypass lock delay)
         self.piece_on_ground = false;
         self.lock_delay_timer = 0.0;
         self.lock_piece();
     }
-    
+
     fn reset_lock_delay(&mut self) {
         // Reset lock delay timer when piece is moved/rotated successfully
         if self.piece_on_ground {
@@ -466,17 +479,19 @@ impl Game {
     }
 
     fn lock_piece(&mut self) {
+        let mut t_spin_type = TSpinType::None;
         if let Some(piece) = &self.current_piece {
+            t_spin_type = self.check_t_spin(piece);
             let blocks = piece.get_blocks();
             let id = piece.get_id();
-            
+
             // Place piece blocks permanently on the board
             for (row, col) in &blocks {
                 if *row >= 0 && *col >= 0 {
                     self.board.set_cell(*row as usize, *col as usize, id);
                 }
             }
-            
+
             // Track pieces placed
             self.current_game_stats.pieces_placed += 1;
         }
@@ -492,46 +507,76 @@ impl Game {
                 4 => self.current_game_stats.quadruples += 1,
                 _ => {}
             }
-            
+
             // Increment combo
             self.combo += 1;
-            
+
             // Track max combo
             if self.combo > self.current_game_stats.max_combo {
                 self.current_game_stats.max_combo = self.combo;
             }
+
+            // Check for All Clear (Perfect Clear)
+            let is_all_clear = self.board.is_all_clear();
+            
+            // Track T-Spins and All Clears
+            if t_spin_type != TSpinType::None {
+                match t_spin_type {
+                    TSpinType::Full => match cleared {
+                        1 => self.current_game_stats.t_spins_singles += 1,
+                        2 => self.current_game_stats.t_spins_doubles += 1,
+                        3 => self.current_game_stats.t_spins_triples += 1,
+                        _ => {}
+                    },
+                    TSpinType::Mini => match cleared {
+                        1 => self.current_game_stats.t_spins_singles += 1,
+                        2 => self.current_game_stats.t_spins_doubles += 1,
+                        _ => {}
+                    },
+                    TSpinType::None => {}
+                }
+            }
+            if is_all_clear {
+                self.current_game_stats.all_clears += 1;
+            }
             
             // Use score manager to handle scoring
-            self.score_manager.lines_cleared(cleared, self.level, self.combo);
+            self.score_manager
+                .lines_cleared(cleared, self.level, self.combo, t_spin_type, is_all_clear);
             self.lines_cleared += cleared;
-            
+
             // Check for level up
             self.update_level();
             
-            println!("Cleared {} line(s)! Combo: {} Total lines: {}", cleared, self.combo, self.lines_cleared);
+            if is_all_clear {
+                println!("ALL CLEAR! Perfect Clear bonus!");
+            }
+            
+            if t_spin_type != TSpinType::None {
+                println!("T-Spin {:?} with {} lines!", t_spin_type, cleared);
+            }
+            println!(
+                "Cleared {} line(s)! Combo: {} Total lines: {}",
+                cleared, self.combo, self.lines_cleared
+            );
             println!("Score: {}", self.score_manager.get_score());
         } else {
             // Reset combo if no lines cleared
             self.combo = 0;
         }
-        
+
         // Reset hold permission after locking
         self.hold_queue.reset_hold();
-        
+
         // Spawn next piece
         self.spawn_next_piece();
     }
 
     fn spawn_next_piece(&mut self) {
         self.current_piece = self.queue.get_next_piece();
-        
-        // Log queue state
-        let (current_pieces, next_pieces) = self.queue.get_piece_names();
-        println!("\n=== Queue State ===");
-        println!("Current pieces (visible): {:?}", current_pieces);
-        println!("Next pieces (background): {:?}", next_pieces);
-        println!("==================\n");
-        
+
+      
+
         if let Some(piece) = &self.current_piece {
             // Check if the new piece collides immediately (game over condition)
             if !self.board.is_valid_position(&piece.get_blocks()) {
@@ -541,11 +586,11 @@ impl Game {
             }
         }
     }
-    
+
     fn apply_gravity(&mut self) {
         if let Some(piece) = &mut self.current_piece {
             piece.move_down();
-            
+
             // Check if the move is valid
             if !self.board.is_valid_position(&piece.get_blocks()) {
                 piece.move_up(); // Undo the move
@@ -557,7 +602,7 @@ impl Game {
             }
         }
     }
-    
+
     fn calculate_drop_interval(&self) -> f32 {
         // Decrease interval as level increases (faster falling)
         // Formula: (0.8 - ((level - 1) * 0.007))^(level - 1)
@@ -566,7 +611,7 @@ impl Game {
         let level_multiplier = 0.9_f32.powi(self.level as i32 - 1);
         (base_interval * level_multiplier).max(0.1) // Minimum 0.1 seconds
     }
-    
+
     fn calculate_lock_delay(&self) -> f32 {
         // Decrease lock delay as level increases
         // Start at 500ms, reduce to minimum 100ms at high levels
@@ -574,7 +619,7 @@ impl Game {
         let level_multiplier = 0.92_f32.powi(self.level as i32 - 1);
         (base_delay * level_multiplier).max(0.1) // Minimum 100ms
     }
-    
+
     fn update_level(&mut self) {
         // Increase level every 10 lines
         let new_level = (self.lines_cleared / 10) + 1;
@@ -585,12 +630,12 @@ impl Game {
             println!("Level up! Now at level {}", self.level);
         }
     }
-    
+
     pub fn start_game(&mut self) {
         self.game_state = GameState::Playing;
         self.drop_interval = self.calculate_drop_interval();
         self.lock_delay_duration = self.calculate_lock_delay();
-        
+
         // Reset and start tracking game stats
         self.current_game_stats = GameStats::new();
         self.game_start_time = SystemTime::now()
@@ -602,18 +647,18 @@ impl Game {
     pub fn resume_game(&mut self) {
         self.game_state = GameState::Playing;
     }
-    
+
     pub fn is_game_active(&self) -> bool {
         self.game_state == GameState::Playing || self.game_state == GameState::Paused
     }
-    
+
     pub fn reset_game(&mut self) {
         let options = self.options.clone();
         *self = Self::new(options);
         self.game_state = GameState::Playing;
         self.drop_interval = self.calculate_drop_interval();
         self.lock_delay_duration = self.calculate_lock_delay();
-        
+
         // Reset and start tracking game stats
         self.current_game_stats = GameStats::new();
         self.game_start_time = SystemTime::now()
@@ -621,7 +666,7 @@ impl Game {
             .unwrap()
             .as_secs();
     }
-    
+
     // Helper method for checking if action key was pressed (single press)
     fn is_action_key_pressed(&self, input: &egui::InputState, action: GameAction) -> bool {
         if let Some(key) = self.options.key_bindings.get(&action) {
@@ -637,6 +682,45 @@ impl Game {
             ctx.input(|i| i.key_down(*key))
         } else {
             false
+        }
+    }
+
+    fn check_t_spin(&self, piece: &Piece) -> TSpinType {
+        if piece.get_name() != "T" {
+            return TSpinType::None;
+        }
+
+        if !self.last_action_was_rotation {
+            return TSpinType::None;
+        }
+
+        let position = piece.get_position();
+        let corners = [
+            (position.0 - 1, position.1 - 1), // Top-left
+            (position.0 - 1, position.1 + 1), // Top-right
+            (position.0 + 1, position.1 - 1), // Bottom-left
+            (position.0 + 1, position.1 + 1), // Bottom-right
+        ];
+
+        let mut occupied_corners = 0;
+        for (row, col) in &corners {
+            if *row < 0
+                || *col < 0
+                || *row as usize >= Board::get_height()
+                || *col as usize >= Board::get_width()
+            {
+                occupied_corners += 1; // Out of bounds counts as occupied
+            } else if self.board.get_cell(*row as usize, *col as usize) != 0 {
+                occupied_corners += 1;
+            }
+        }
+
+        if occupied_corners >= 3 {
+            TSpinType::Full
+        } else if occupied_corners == 2 {
+            TSpinType::Mini
+        } else {
+            TSpinType::None
         }
     }
 }

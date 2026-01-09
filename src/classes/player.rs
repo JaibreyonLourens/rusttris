@@ -13,6 +13,10 @@ pub struct GameStats {
     pub quadruples: u32,
     pub max_combo: u32,
     pub back_to_backs: u32,
+    pub t_spins_singles: u32,
+    pub t_spins_doubles: u32,
+    pub t_spins_triples: u32,
+    pub all_clears: u32,
     pub duration_seconds: u64,
     pub timestamp: u64,
 }
@@ -30,6 +34,10 @@ impl GameStats {
             quadruples: 0,
             max_combo: 0,
             back_to_backs: 0,
+            t_spins_singles: 0,
+            t_spins_doubles: 0,
+            t_spins_triples: 0,
+            all_clears: 0,
             duration_seconds: 0,
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -50,6 +58,12 @@ pub struct PlayerStats {
     pub total_triples: u64,
     pub total_quadruples: u64,
     pub total_back_to_backs: u64,
+    pub total_t_spins: u64,
+    pub total_t_spin_singles: u64,
+    pub total_t_spin_doubles: u64,
+    pub total_t_spin_triples: u64,
+
+    pub total_all_clears: u64,
     pub highest_score: u32,
     pub highest_level: u32,
     pub longest_combo: u32,
@@ -69,6 +83,11 @@ impl PlayerStats {
             total_triples: 0,
             total_quadruples: 0,
             total_back_to_backs: 0,
+            total_t_spins: 0,
+            total_t_spin_singles: 0,
+            total_t_spin_doubles: 0,
+            total_t_spin_triples: 0,
+            total_all_clears: 0,
             highest_score: 0,
             highest_level: 0,
             longest_combo: 0,
@@ -87,6 +106,11 @@ impl PlayerStats {
         self.total_triples += game_stats.triples as u64;
         self.total_quadruples += game_stats.quadruples as u64;
         self.total_back_to_backs += game_stats.back_to_backs as u64;
+        self.total_t_spin_singles += game_stats.t_spins_singles as u64;
+        self.total_t_spin_doubles += game_stats.t_spins_doubles as u64;
+        self.total_t_spin_triples += game_stats.t_spins_triples as u64;
+        self.total_t_spins += (game_stats.t_spins_singles + game_stats.t_spins_doubles + game_stats.t_spins_triples) as u64;
+        self.total_all_clears += game_stats.all_clears as u64;
         self.total_playtime_seconds += game_stats.duration_seconds;
 
         // Update personal bests

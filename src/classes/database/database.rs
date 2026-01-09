@@ -70,8 +70,8 @@ impl DbManager {
     .as_secs() as i64;
         
         self.conn.execute(
-            "INSERT INTO games (player_id, score, level, lines_cleared, singles, doubles, triples, quadruples, max_combo, pieces_placed, duration_seconds, back_to_backs, played_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            "INSERT INTO games (player_id, score, level, lines_cleared, singles, doubles, triples, quadruples, max_combo, pieces_placed, duration_seconds, back_to_backs, t_spin_singles, t_spin_doubles, t_spin_triples, all_clears, played_at) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
             params![
                 player_id,
                 game_stats.score as i64,
@@ -85,6 +85,10 @@ impl DbManager {
                 game_stats.pieces_placed as i64,
                 game_stats.duration_seconds as i64,
                 game_stats.back_to_backs as i64,
+                game_stats.t_spins_singles as i64,
+                game_stats.t_spins_doubles as i64,
+                game_stats.t_spins_triples as i64,
+                game_stats.all_clears as i64,
                 now
             ],
         )?;
@@ -143,7 +147,8 @@ impl DbManager {
         
         let mut stmt = self.conn.prepare(
             "SELECT score, level, lines_cleared, singles, doubles, triples, quadruples, 
-                    max_combo, pieces_placed, duration_seconds, played_at, back_to_backs
+                    max_combo, pieces_placed, duration_seconds, played_at, back_to_backs, 
+                    t_spin_singles, t_spin_doubles, t_spin_triples, all_clears
              FROM games 
              WHERE player_id = ?1 
              ORDER BY played_at ASC"
@@ -163,6 +168,10 @@ impl DbManager {
                 duration_seconds: row.get::<_, i64>(9)? as u64,
                 timestamp: row.get::<_, i64>(10)? as u64,
                 back_to_backs: row.get::<_, i64>(11).unwrap_or(0) as u32,
+                t_spins_singles: row.get::<_, i64>(12).unwrap_or(0) as u32,
+                t_spins_doubles: row.get::<_, i64>(13).unwrap_or(0) as u32,
+                t_spins_triples: row.get::<_, i64>(14).unwrap_or(0) as u32,
+                all_clears: row.get::<_, i64>(15).unwrap_or(0) as u32,
             })
         })?;
 
@@ -194,8 +203,13 @@ impl DbManager {
             LeaderboardCategory::HighestLevel => ("MAX(g.level)", "value"),
             LeaderboardCategory::MostLines => ("MAX(g.lines_cleared)", "value"),
             LeaderboardCategory::MaxCombo => ("MAX(g.max_combo)", "value"),
+            LeaderboardCategory::MostSingles => ("MAX(g.singles)", "value"),
+            LeaderboardCategory::MostDoubles => ("MAX(g.doubles)", "value"),
+            LeaderboardCategory::MostTriples => ("MAX(g.triples)", "value"),
             LeaderboardCategory::Mostquadruples => ("MAX(g.quadruples)", "value"),
             LeaderboardCategory::MostBackToBacks => ("MAX(g.back_to_backs)", "value"),
+            LeaderboardCategory::MostTSpins => ("MAX(g.t_spin_singles + g.t_spin_doubles + g.t_spin_triples)", "value"),
+            LeaderboardCategory::MostAllClears => ("MAX(g.all_clears)", "value"),
         };
 
         let query = format!(
@@ -228,6 +242,11 @@ pub enum LeaderboardCategory {
     HighestLevel,
     MostLines,
     MaxCombo,
+    MostSingles,
+    MostDoubles,
+    MostTriples,
     Mostquadruples,
     MostBackToBacks,
+    MostTSpins,
+    MostAllClears,
 }
