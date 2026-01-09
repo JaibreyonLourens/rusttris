@@ -554,6 +554,10 @@ impl Game {
         self.game_state = GameState::Playing;
     }
     
+    pub fn is_game_active(&self) -> bool {
+        self.game_state == GameState::Playing || self.game_state == GameState::Paused
+    }
+    
     pub fn reset_game(&mut self) {
         let options = self.options.clone();
         *self = Self::new(options);

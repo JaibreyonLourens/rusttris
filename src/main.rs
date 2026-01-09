@@ -115,7 +115,10 @@ impl eframe::App for RusttrisApp {
                 let options_ptr = unsafe { &mut (*game_ptr).options as *mut GameOptions };
                 if let Some(action) = self.screen_manager.draw(&mut self.game, ui, &self.player.name, &self.db_manager, unsafe { &mut *options_ptr }) {
                     match action {
-                        ScreenAction::StartGame => self.game.start_game(),
+                        ScreenAction::StartGame => {
+                            self.game.reset_game();
+                            self.game.start_game()
+                        },
                         ScreenAction::ResumeGame => self.game.resume_game(),
                         ScreenAction::RestartGame => self.game.reset_game(),
                         ScreenAction::CreatePlayer(name) => {
@@ -163,6 +166,11 @@ impl eframe::App for RusttrisApp {
                             }
                         },
                         ScreenAction::BackToMenu => {
+                            // Reset game if coming from GameOver
+                            if self.game.get_state() == crate::enums::states::GameState::GameOver {
+                                let options = self.game.options.clone();
+                                self.game = Game::new(options);
+                            }
                             self.game.set_state(crate::enums::states::GameState::Menu);
                         },
                         ScreenAction::ShowLeaderboard => {

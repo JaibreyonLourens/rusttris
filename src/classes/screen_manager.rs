@@ -53,9 +53,11 @@ impl ScreenManager {
                 None
             },
             GameState::Menu => {
-                if let Some(action) = screens::menu::draw(ui, player_name) {
+                let has_active_game = game.is_game_active();
+                if let Some(action) = screens::menu::draw(ui, player_name, has_active_game) {
                     return Some(match action {
                         screens::menu::MenuAction::StartGame => ScreenAction::StartGame,
+                        screens::menu::MenuAction::ResumeGame => ScreenAction::ResumeGame,
                         screens::menu::MenuAction::NewPlayer => ScreenAction::ShowPlayerCreation,
                         screens::menu::MenuAction::SelectPlayer => ScreenAction::ShowPlayerSelection,
                         screens::menu::MenuAction::ShowLeaderboard => ScreenAction::ShowLeaderboard,

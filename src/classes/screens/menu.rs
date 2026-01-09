@@ -2,13 +2,14 @@ use eframe::egui;
 
 pub enum MenuAction {
     StartGame,
+    ResumeGame,
     NewPlayer,
     SelectPlayer,
     ShowLeaderboard,
     ShowOptions,
 }
 
-pub fn draw(ui: &mut egui::Ui, player_name: &str) -> Option<MenuAction> {
+pub fn draw(ui: &mut egui::Ui, player_name: &str, has_active_game: bool) -> Option<MenuAction> {
     let mut action = None;
     
     ui.vertical_centered(|ui| {
@@ -18,6 +19,14 @@ pub fn draw(ui: &mut egui::Ui, player_name: &str) -> Option<MenuAction> {
         
         ui.label(format!("Player: {}", player_name));
         ui.add_space(30.0);
+        
+        if has_active_game {
+            if ui.button("Resume Game").clicked() {
+                action = Some(MenuAction::ResumeGame);
+            }
+            
+            ui.add_space(10.0);
+        }
         
         if ui.button("Start Game").clicked() {
             action = Some(MenuAction::StartGame);
